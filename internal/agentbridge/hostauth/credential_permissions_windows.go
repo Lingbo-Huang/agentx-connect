@@ -23,7 +23,9 @@ func secureCredentialFile(file *os.File) error {
 	if err != nil {
 		return errors.New("prepare private credential ACL")
 	}
-	if err := windows.SetSecurityInfo(windows.Handle(file.Fd()), windows.SE_FILE_OBJECT,
+	// os.OpenFile requests data access, not WRITE_DAC. The owner can reopen the
+	// named file for WRITE_DAC; SetSecurityInfo on that data-only handle cannot.
+	if err := windows.SetNamedSecurityInfo(file.Name(), windows.SE_FILE_OBJECT,
 		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
 		return errors.New("protect credential file ACL")
 	}
