@@ -1,0 +1,9 @@
+{
+  "name": "agentx-claude",
+  "version": "0.2.0",
+  "description": "Discover capabilities and manage durable work delivery from Claude.",
+  "author": { "name": "AgentX" },
+  "homepage": "https://github.com/Lingbo-Huang/agentx-connect",
+  "license": "MIT",
+  "mcpServers": "./.mcp.json"
+}

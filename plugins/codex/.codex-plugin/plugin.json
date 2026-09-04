@@ -1,0 +1,17 @@
+{
+  "name": "agentx-codex",
+  "version": "0.2.0",
+  "description": "Search external capabilities, invoke tools, and track durable work through delivery, revision and acceptance.",
+  "author": { "name": "AgentX" },
+  "homepage": "https://github.com/Lingbo-Huang/agentx-connect",
+  "license": "MIT",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "AgentX",
+    "shortDescription": "Capabilities and durable work delivery",
+    "developerName": "AgentX",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Find a provider for work requiring external access or independent delivery."]
+  }
+}

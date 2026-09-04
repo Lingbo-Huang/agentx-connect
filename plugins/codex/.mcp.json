@@ -1,0 +1,3 @@
+{
+  "agentx": { "command": "node", "args": ["./launch.mjs"], "cwd": "." }
+}
