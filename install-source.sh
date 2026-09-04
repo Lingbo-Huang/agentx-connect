@@ -6,6 +6,7 @@ fail() { printf 'agentx_connect: %s\n' "$1" >&2; exit 2; }
 version=$1
 action=$2
 shift 2
+case "$version" in *[!a-zA-Z0-9.-]*) fail 'version contains unsupported characters';; esac
 printf '%s\n' "$version" | LC_ALL=C grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$' || fail 'select an exact module version, never latest or a branch'
 case "$action" in install|upgrade|status|doctor|rollback|uninstall) ;; *) fail 'unsupported action';; esac
 for arg do

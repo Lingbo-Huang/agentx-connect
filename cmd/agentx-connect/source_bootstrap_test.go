@@ -13,7 +13,7 @@ func TestSourceBootstrapBoundaries(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX bootstrap")
 	}
-	for _, scenario := range []string{"install", "upgrade", "status", "compiler-failure", "installer-failure", "floating-version", "override-version", "override-binary"} {
+	for _, scenario := range []string{"install", "upgrade", "status", "compiler-failure", "installer-failure", "floating-version", "multi-line-version", "override-version", "override-binary"} {
 		t.Run(scenario, func(t *testing.T) {
 			dir, err := filepath.EvalSymlinks(t.TempDir())
 			if err != nil {
@@ -54,6 +54,8 @@ chmod 0700 "$GOBIN/agentx-connect"
 				t.Setenv("SOURCE_TEST_EXIT", "73")
 			case "floating-version":
 				version = "latest"
+			case "multi-line-version":
+				version = "v1.2.3\nv1.2.4"
 			case "override-version":
 				extra = append(extra, "--version=v9.9.9")
 			case "override-binary":
@@ -72,7 +74,7 @@ chmod 0700 "$GOBIN/agentx-connect"
 			}
 			goArgs, _ := os.ReadFile(filepath.Join(dir, "go-args"))
 			installerArgs, _ := os.ReadFile(filepath.Join(dir, "installer-args"))
-			rejected := scenario == "floating-version" || strings.HasPrefix(scenario, "override-")
+			rejected := scenario == "floating-version" || scenario == "multi-line-version" || strings.HasPrefix(scenario, "override-")
 			if rejected && len(goArgs) != 0 {
 				t.Fatal("invalid parameters reached compiler")
 			}
