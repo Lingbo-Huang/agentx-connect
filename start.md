@@ -10,15 +10,15 @@ Download and inspect the installer. Run from the intended project for project-sc
 Hosts such as Trae. Replace `codex` and the example origin before executing:
 
 ```sh
-curl -fL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.0/install.sh -o /tmp/agentx-install.sh
-sh /tmp/agentx-install.sh install --host codex --version v0.2.0 --server https://YOUR-AGENTX-SERVER
+curl -fL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.1/install.sh -o /tmp/agentx-install.sh
+sh /tmp/agentx-install.sh install --host codex --version v0.2.1 --server https://YOUR-AGENTX-SERVER
 ```
 
 Windows PowerShell (download first; use your organization's normal script execution policy):
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.0/install.ps1 -OutFile "$env:TEMP\agentx-install.ps1"
-& "$env:TEMP\agentx-install.ps1" install --host codex --version v0.2.0 --server https://YOUR-AGENTX-SERVER
+Invoke-WebRequest https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.1/install.ps1 -OutFile "$env:TEMP\agentx-install.ps1"
+& "$env:TEMP\agentx-install.ps1" install --host codex --version v0.2.1 --server https://YOUR-AGENTX-SERVER
 ```
 
 No source checkout, Go, Node, administrator permission or PATH modification is needed.
@@ -71,6 +71,9 @@ Download/checksum failures preserve the installed version. Interrupted file writ
 are rolled back on the next run. Close the Host before upgrading on Windows.
 Run `rollback --host codex` to restore the previous verified binary and Skill.
 User-modified Skills are preserved; resolve the conflict explicitly before retrying.
+WorkBuddy Desktop uses `~/.workbuddy/skills`. Upgrading a v0.2.0 installation with
+v0.2.1 migrates its unchanged managed Skill from the old CodeBuddy CLI directory;
+rollback restores the previous location. An occupied destination is preserved.
 
 For native MCP run `uninstall --host codex`. For Git plugins remove the plugin in
 the Host first, then run `uninstall --host codex --plugin`. Only exact managed

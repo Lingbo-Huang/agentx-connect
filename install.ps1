@@ -1,6 +1,6 @@
 param([Parameter(ValueFromRemainingArguments=$true)][string[]]$ConnectorArgs)
 $ErrorActionPreference = 'Stop'
-$version = 'v0.2.0'
+$version = 'v0.2.1'
 # Native architecture, including an x64 process running on Windows ARM.
 $native = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
 $arch = switch ($native) { 'Arm64' { 'arm64' } 'X64' { 'amd64' } default { throw 'Unsupported Windows CPU' } }

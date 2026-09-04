@@ -142,12 +142,32 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
+		if err := i.verify(s); err != nil {
+			return err
+		}
 		return json.NewEncoder(os.Stdout).Encode(s)
 	case "doctor":
+		s, err := i.load()
+		if err != nil {
+			return err
+		}
+		if err := i.verify(s); err != nil {
+			return err
+		}
 		return runBridge(i.binary(), "doctor", *host)
 	case "rollback":
 		return i.rollback()
 	case "uninstall":
+		s, err := i.load()
+		if errors.Is(err, os.ErrNotExist) {
+			return i.uninstall()
+		}
+		if err != nil {
+			return err
+		}
+		if err := i.verify(s); err != nil {
+			return err
+		}
 		if !*plugin {
 			if err := runBridge(i.binary(), "uninstall", *host); err != nil {
 				return err
@@ -197,13 +217,19 @@ func skillDestination(home, host string, plugin bool) string {
 	case "trae":
 		dir = ".trae"
 	case "workbuddy":
-		dir = ".codebuddy"
+		dir = ".workbuddy"
 	case "lobi":
 		return filepath.Join(home, ".config", "codewiz", "skills", "agentx-delivery-network", "SKILL.md")
 	case "openclaw":
 		dir = ".openclaw"
 	}
 	return filepath.Join(home, dir, "skills", "agentx-delivery-network", "SKILL.md")
+}
+
+// v0.2.0 used CodeBuddy CLI's directory for WorkBuddy Desktop. Only the exact
+// old managed path is accepted for transactional migration, rollback and removal.
+func managedSkillPath(home, host, path string) bool {
+	return path == skillDestination(home, host, false) || (host == "workbuddy" && path == filepath.Join(home, ".codebuddy", "skills", "agentx-delivery-network", "SKILL.md"))
 }
 func runBridge(file string, args ...string) error {
 	c := exec.Command(file, args...)
@@ -282,7 +308,7 @@ func (i installer) load() (state, error) {
 		return s, errors.New("invalid installation manifest")
 	}
 	home, err := os.UserHomeDir()
-	if err != nil || (s.SkillPath != "" && s.SkillPath != skillDestination(home, i.host, false)) {
+	if err != nil || (s.SkillPath != "" && !managedSkillPath(home, i.host, s.SkillPath)) {
 		return s, errors.New("invalid managed Skill path")
 	}
 	return s, nil
@@ -348,8 +374,11 @@ func (i installer) install(ctx context.Context, version, skillPath string, upgra
 		if previous.Version != version && !upgrade {
 			return errors.New("different version installed; use upgrade")
 		}
-		if previous.SkillPath != skillPath {
+		if previous.SkillPath != skillPath && !(upgrade && i.host == "workbuddy" && previous.SkillPath != "" && skillPath != "") {
 			return errors.New("installation mode changed; uninstall the previous mode first")
+		}
+		if err := i.verify(previous); err != nil {
+			return err
 		}
 	}
 	binary, exists, err := readManaged(i.binary())
@@ -366,8 +395,14 @@ func (i installer) install(ctx context.Context, version, skillPath string, upgra
 		if err != nil {
 			return err
 		}
-		if present && digest(oldSkill) != previous.SkillHash {
+		if present && (previous.SkillPath != skillPath || digest(oldSkill) != previous.SkillHash) {
 			return errors.New("Skill is user-owned or modified; refusing overwrite")
+		}
+	}
+	if previous.SkillPath != "" && previous.SkillPath != skillPath {
+		oldSkill, _, err = readManaged(previous.SkillPath)
+		if err != nil {
+			return err
 		}
 	}
 	asset := "agentx-bridge-mcp_" + runtime.GOOS + "_" + runtime.GOARCH + suffix()
@@ -403,6 +438,9 @@ func (i installer) install(ctx context.Context, version, skillPath string, upgra
 	updates := []update{{i.binary(), newBinary, 0700}, {i.statePath(), body, 0600}}
 	if skillPath != "" {
 		updates = append(updates, update{skillPath, skill, 0600})
+	}
+	if previous.SkillPath != "" && previous.SkillPath != skillPath {
+		updates = append(updates, update{previous.SkillPath, nil, 0600})
 	}
 	if previous.Version != "" && previous.Version != version {
 		// Persist the previous verified release before changing active files.
@@ -466,14 +504,14 @@ func (i installer) recover() error {
 		return err
 	}
 	var journal transaction
-	if len(body) > 100<<20 || json.Unmarshal(body, &journal) != nil || len(journal.Changes) > 3 {
+	if len(body) > 100<<20 || json.Unmarshal(body, &journal) != nil || len(journal.Changes) > 4 {
 		return errors.New("invalid recovery journal")
 	}
 	// Journal contents are local input, never permission to write arbitrary paths.
 	for _, c := range journal.Changes {
 		if c.Path != i.binary() && c.Path != i.statePath() {
 			home, err := os.UserHomeDir()
-			if err != nil || c.Path != skillDestination(home, i.host, false) {
+			if err != nil || !managedSkillPath(home, i.host, c.Path) {
 				return errors.New("unsafe recovery target")
 			}
 		}
@@ -512,8 +550,18 @@ func (i installer) rollback() error {
 	}
 	var old state
 	b, _, err := readManaged(filepath.Join(i.root, "previous-state.json"))
-	if err != nil || json.Unmarshal(b, &old) != nil || old.Host != i.host || old.SkillPath != current.SkillPath {
+	if err != nil || json.Unmarshal(b, &old) != nil || old.Host != i.host {
 		return errors.New("no compatible previous release")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || (old.SkillPath != "" && !managedSkillPath(home, i.host, old.SkillPath)) || (old.SkillPath == "") != (current.SkillPath == "") {
+		return errors.New("no compatible previous Skill path")
+	}
+	if old.SkillPath != current.SkillPath {
+		_, exists, err := readManaged(old.SkillPath)
+		if err != nil || exists {
+			return errors.New("previous Skill path is occupied; preserving user content")
+		}
 	}
 	binary, _, err := readManaged(filepath.Join(i.root, "previous-binary"))
 	if err != nil || digest(binary) != old.BinaryHash {
@@ -526,6 +574,9 @@ func (i installer) rollback() error {
 			return errors.New("previous Skill checksum mismatch")
 		}
 		updates = append(updates, update{old.SkillPath, b, 0600})
+	}
+	if current.SkillPath != old.SkillPath {
+		updates = append(updates, update{current.SkillPath, nil, 0600})
 	}
 	return i.commit(updates)
 }
@@ -546,6 +597,16 @@ func (i installer) verify(s state) error {
 }
 func (i installer) uninstall() error {
 	s, err := i.load()
+	if errors.Is(err, os.ErrNotExist) {
+		_, exists, readErr := readManaged(i.binary())
+		if readErr != nil {
+			return readErr
+		}
+		if exists {
+			return errors.New("binary has no installation manifest; preserving user content")
+		}
+		return nil
+	}
 	if err != nil {
 		return err
 	}

@@ -55,8 +55,69 @@ func TestInstallUpgradeRollbackAndRemoval(t *testing.T) {
 	if err := i.uninstall(); err != nil {
 		t.Fatal(err)
 	}
+	if err := i.uninstall(); err != nil {
+		t.Fatalf("repeat removal: %v", err)
+	}
 	if _, err := os.Stat(i.binary()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("binary retained")
+	}
+}
+func TestWorkBuddyDesktopSkillMigrationAndRollback(t *testing.T) {
+	for _, changed := range []string{"none", "old", "destination"} {
+		t.Run(changed, func(t *testing.T) {
+			i, binary := testInstaller(t)
+			i.host = "workbuddy"
+			t.Setenv("HOME", i.root)
+			t.Setenv("USERPROFILE", i.root)
+			old := filepath.Join(i.root, ".codebuddy", "skills", "agentx-delivery-network", "SKILL.md")
+			next := skillDestination(i.root, "workbuddy", false)
+			if next != filepath.Join(i.root, ".workbuddy", "skills", "agentx-delivery-network", "SKILL.md") {
+				t.Fatal("incorrect WorkBuddy Desktop Skill directory")
+			}
+			if err := i.install(context.Background(), "v0.2.0", old, false); err != nil {
+				t.Fatal(err)
+			}
+			if changed != "none" {
+				path := old
+				if changed == "destination" {
+					path = next
+				}
+				if err := atomicWrite(path, []byte("user content"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := i.install(context.Background(), "v0.2.1", next, true); err == nil {
+					t.Fatal("migration replaced user content")
+				}
+				body, err := os.ReadFile(path)
+				if err != nil || string(body) != "user content" {
+					t.Fatal("user content changed")
+				}
+				return
+			}
+			*binary = []byte("release two")
+			if err := i.install(context.Background(), "v0.2.1", next, true); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(old); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("old Skill retained")
+			}
+			if err := i.rollback(); err != nil {
+				t.Fatal(err)
+			}
+			s, err := i.load()
+			if err != nil || s.Version != "v0.2.0" || s.SkillPath != old {
+				t.Fatal("migration rollback manifest mismatch")
+			}
+			if err := i.verify(s); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(next); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("new Skill retained after rollback")
+			}
+			if err := i.uninstall(); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 func TestFailedDownloadChecksumAndProbePreserveInstallation(t *testing.T) {
