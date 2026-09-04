@@ -1,0 +1,43 @@
+name: Developer ID and Apple notarization
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Reviewed release tag to sign
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  notarize:
+    runs-on: macos-latest
+    environment: apple-release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Sign and require Apple's Accepted result
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          APPLE_DEVELOPER_ID_P12: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
+          APPLE_NOTARY_KEY_ID: ${{ vars.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ vars.APPLE_NOTARY_ISSUER_ID }}
+        run: sh scripts/notarize-macos.sh
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/notarized/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notarized-macos
+          path: dist/notarized/
+          if-no-files-found: error
