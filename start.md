@@ -27,6 +27,12 @@ The user must approve Device Authorization personally. After approval, reload
 the Host and enable/trust the AgentX MCP if the Host asks. WorkBuddy requires
 its custom-connector Trust step.
 
+If macOS rejects an unsigned download, offer the explicit
+[local source build](SOURCE_INSTALL.md) route for users with Go installed.
+Do not automatically change system security settings or claim a Git plugin
+removes binary signing requirements. Source-build support requires a release
+newer than v0.2.2 that includes the source bootstrap.
+
 ## Direct Git plugin marketplaces
 
 For Codex or Claude, choose this instead of registering native MCP twice. Use the

@@ -17,6 +17,9 @@ Git plugin launchers. Native MCP installation uses the standalone Go binary.
 
 Supported binary targets: macOS, Linux and Windows, each on amd64 and arm64.
 See [SECURITY.md](SECURITY.md) for release verification and trust boundaries.
+No Apple developer membership is needed to use AgentX. A candidate
+[source installation route](SOURCE_INSTALL.md) builds locally with Go and preserves
+managed upgrades/rollback without requiring our Developer ID certificate.
 Release and CI results are available in this repository's Releases and Actions.
 
 Build and test from this repository alone:

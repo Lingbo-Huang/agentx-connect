@@ -10,6 +10,13 @@ and workflow. With GitHub CLI installed, verify a downloaded binary:
 gh attestation verify ./agentx-connect_darwin_arm64 --repo Lingbo-Huang/agentx-connect
 ```
 
+The explicit [source installation](SOURCE_INSTALL.md) route trusts the selected
+source, Go module checksum database and locally installed compiler instead of
+downloaded executable bytes. `--local-binary` checks module/version/platform metadata
+and records `LOCAL_BUILD` with the actual file hash. Metadata is not a signature;
+only use files you compiled from the reviewed module. GitHub attestations for
+release assets do not authenticate your locally rebuilt bytes.
+
 The public Git repository is the reviewable trust entry point. Updates are
 explicit and pinned to a tag; no startup auto-update, sudo, shell-profile edits,
 Gatekeeper bypass or development-channel flags are used. macOS Developer ID and

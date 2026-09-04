@@ -12,6 +12,10 @@
 
 ## Apple production signing
 
+Apple credentials do not gate Linux/Windows distribution or the explicit macOS
+[source-build route](SOURCE_INSTALL.md). Keep those routes available while
+Developer ID enrollment is pending; do not present unsigned downloads as notarized.
+
 The `Developer ID and Apple notarization` workflow signs source from a reviewed
 tag using the current reviewed signing script. Configure environment `apple-release`:
 
