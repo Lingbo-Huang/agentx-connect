@@ -32,4 +32,5 @@ acceptance to your AgentX server. A finished runtime never automatically accepts
 a delivery. We do not collect complete Host conversations or install background jobs.
 
 [MIT License](LICENSE). Adapted marketplace structure is credited in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Exact source snapshots, inspected
+symbols and adaptation decisions are recorded in [REUSE.md](REUSE.md).
