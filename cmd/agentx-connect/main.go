@@ -107,6 +107,9 @@ func run(args []string) error {
 	if (action == "install" || action == "upgrade") && !versionPattern.MatchString(*version) {
 		return errors.New("an explicit --version vX.Y.Z is required")
 	}
+	if (action == "install" || action == "upgrade") && buildVersion != "dev" && *version != "v"+buildVersion {
+		return errors.New("installer release does not match --version; download the bootstrap from the selected release so binary and Skill versions agree")
+	}
 	if (action == "install" || action == "upgrade") && !*noConnect && !validOrigin(*server) {
 		return errors.New("--server must be an HTTPS origin without credentials, path, query or fragment")
 	}

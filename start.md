@@ -10,15 +10,15 @@ Download and inspect the installer. Run from the intended project for project-sc
 Hosts such as Trae. Replace `codex` and the example origin before executing:
 
 ```sh
-curl -fL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.1/install.sh -o /tmp/agentx-install.sh
-sh /tmp/agentx-install.sh install --host codex --version v0.2.1 --server https://YOUR-AGENTX-SERVER
+curl -fL --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.2/install.sh -o /tmp/agentx-install.sh
+sh /tmp/agentx-install.sh install --host codex --version v0.2.2 --server https://YOUR-AGENTX-SERVER
 ```
 
 Windows PowerShell (download first; use your organization's normal script execution policy):
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.1/install.ps1 -OutFile "$env:TEMP\agentx-install.ps1"
-& "$env:TEMP\agentx-install.ps1" install --host codex --version v0.2.1 --server https://YOUR-AGENTX-SERVER
+Invoke-WebRequest https://raw.githubusercontent.com/Lingbo-Huang/agentx-connect/v0.2.2/install.ps1 -OutFile "$env:TEMP\agentx-install.ps1"
+& "$env:TEMP\agentx-install.ps1" install --host codex --version v0.2.2 --server https://YOUR-AGENTX-SERVER
 ```
 
 No source checkout, Go, Node, administrator permission or PATH modification is needed.
@@ -67,6 +67,8 @@ For plugins, call the actual loaded tools; native Doctor checks native registrat
 
 Use a reviewed release tag and its installer. Re-run with
 `upgrade --host codex --version vX.Y.Z --no-connect` (and `--plugin` for plugin mode).
+The downloaded installer must come from that same tag; released installers reject
+mixing their embedded Skill with another release's binary before changing files.
 Download/checksum failures preserve the installed version. Interrupted file writes
 are rolled back on the next run. Close the Host before upgrading on Windows.
 Run `rollback --host codex` to restore the previous verified binary and Skill.

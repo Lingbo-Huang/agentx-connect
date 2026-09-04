@@ -1,6 +1,6 @@
 {
   "name": "agentx-codex",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Search external capabilities, invoke tools, and track durable work through delivery, revision and acceptance.",
   "author": { "name": "AgentX" },
   "homepage": "https://github.com/Lingbo-Huang/agentx-connect",

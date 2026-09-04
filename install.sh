@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 # Download first, verify the release checksum, then execute. No sudo or shell-profile edits.
-version=v0.2.1
+version=v0.2.2
 case "$(uname -s)" in Darwin) os=darwin;; Linux) os=linux;; *) printf 'Use install.ps1 on Windows\n' >&2; exit 2;; esac
 case "$(uname -m)" in arm64|aarch64) arch=arm64;; x86_64|amd64) arch=amd64;; *) printf 'Unsupported CPU\n' >&2; exit 2;; esac
 umask 077

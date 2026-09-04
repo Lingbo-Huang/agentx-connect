@@ -28,6 +28,19 @@ func testInstaller(t *testing.T) (installer, *[]byte) {
 	}
 	return i, &binary
 }
+func TestReleasedInstallerRejectsMixedVersionsBeforeSideEffects(t *testing.T) {
+	oldVersion := buildVersion
+	buildVersion = "0.2.2"
+	t.Cleanup(func() { buildVersion = oldVersion })
+	root := filepath.Join(t.TempDir(), "not-created")
+	err := run([]string{"install", "--host", "codex", "--version", "v0.2.0", "--root", root, "--no-connect", "--plugin"})
+	if err == nil || !strings.Contains(err.Error(), "installer release does not match") {
+		t.Fatalf("mixed binary/Skill version accepted: %v", err)
+	}
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("version rejection created installation files")
+	}
+}
 func TestInstallUpgradeRollbackAndRemoval(t *testing.T) {
 	i, b := testInstaller(t)
 	for n := 0; n < 2; n++ {
