@@ -12,8 +12,8 @@
 
 ## Apple production signing
 
-The `Developer ID and Apple notarization` workflow is prepared for a reviewed
-tag containing `scripts/notarize-macos.sh`. Configure environment `apple-release`:
+The `Developer ID and Apple notarization` workflow signs source from a reviewed
+tag using the current reviewed signing script. Configure environment `apple-release`:
 
 | Setting | GitHub storage | Value |
 | --- | --- | --- |

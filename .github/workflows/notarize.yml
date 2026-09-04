@@ -18,11 +18,13 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag }}
+          path: release-source
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: release-source/go.mod
       - name: Sign and require Apple's Accepted result
         env:
           RELEASE_TAG: ${{ inputs.tag }}
@@ -32,12 +34,13 @@ jobs:
           APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
           APPLE_NOTARY_KEY_ID: ${{ vars.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ vars.APPLE_NOTARY_ISSUER_ID }}
-        run: sh scripts/notarize-macos.sh
+        working-directory: release-source
+        run: sh "$GITHUB_WORKSPACE/scripts/notarize-macos.sh"
       - uses: actions/attest-build-provenance@v2
         with:
-          subject-path: dist/notarized/*
+          subject-path: release-source/dist/notarized/*
       - uses: actions/upload-artifact@v4
         with:
           name: notarized-macos
-          path: dist/notarized/
+          path: release-source/dist/notarized/
           if-no-files-found: error
