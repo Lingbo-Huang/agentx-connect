@@ -34,6 +34,7 @@ type state struct {
 	Version    string `json:"version"`
 	Host       string `json:"host"`
 	BinaryHash string `json:"binaryHash"`
+	Source     string `json:"source,omitempty"`
 	SkillHash  string `json:"skillHash,omitempty"`
 	SkillPath  string `json:"skillPath,omitempty"`
 }
@@ -48,9 +49,10 @@ type transaction struct {
 	Changes []change `json:"changes"`
 }
 type installer struct {
-	root, host string
-	fetch      func(context.Context, string, int64) ([]byte, error)
-	probe      func(string) error
+	root, host  string
+	localBinary string
+	fetch       func(context.Context, string, int64) ([]byte, error)
+	probe       func(string) error
 }
 
 func digest(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
@@ -90,11 +92,18 @@ func run(args []string) error {
 	noConnect := f.Bool("no-connect", false, "install files without requesting authorization")
 	plugin := f.Bool("plugin", false, "use Git plugin's MCP and Skill; login only")
 	noBrowser := f.Bool("no-open-browser", false, "print approval URL")
+	localBinary := f.String("local-binary", "", "explicit locally compiled Bridge from the same public module version")
 	if err := f.Parse(args[1:]); err != nil {
 		return errors.New("invalid options; use --help")
 	}
 	if f.NArg() != 0 {
 		return errors.New("unexpected arguments")
+	}
+	if *localBinary != "" && (action != "install" && action != "upgrade") {
+		return errors.New("--local-binary is only valid for install or upgrade")
+	}
+	if *localBinary != "" && !filepath.IsAbs(*localBinary) {
+		return errors.New("--local-binary must be an absolute file path")
 	}
 	switch *host {
 	case "codex", "claude", "cursor", "workbuddy", "trae", "lobi", "openclaw":
@@ -123,7 +132,7 @@ func run(args []string) error {
 	if !filepath.IsAbs(*root) || filepath.Clean(*root) == filepath.VolumeName(*root)+string(os.PathSeparator) {
 		return errors.New("--root must be a non-root absolute directory")
 	}
-	i := installer{root: filepath.Clean(*root), host: *host, fetch: fetchHTTPS, probe: probeBinary}
+	i := installer{root: filepath.Clean(*root), host: *host, localBinary: *localBinary, fetch: fetchHTTPS, probe: probeBinary}
 	if err := safePath(i.root); err != nil {
 		return err
 	}
@@ -248,7 +257,7 @@ func probeBinary(file string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if exec.CommandContext(ctx, file, "version").Run() != nil {
-		return errors.New("downloaded binary cannot run; verify OS/CPU and system signing policy")
+		return errors.New("candidate binary cannot run; verify OS/CPU and system signing policy; source installation is documented in SOURCE_INSTALL.md")
 	}
 	return nil
 }
@@ -307,7 +316,7 @@ func (i installer) load() (state, error) {
 	if err != nil {
 		return s, err
 	}
-	if len(b) > 8192 || json.Unmarshal(b, &s) != nil || s.Host != i.host || !versionPattern.MatchString(s.Version) {
+	if len(b) > 8192 || json.Unmarshal(b, &s) != nil || s.Host != i.host || !versionPattern.MatchString(s.Version) || !validSource(s.Source) {
 		return s, errors.New("invalid installation manifest")
 	}
 	home, err := os.UserHomeDir()
@@ -408,22 +417,13 @@ func (i installer) install(ctx context.Context, version, skillPath string, upgra
 			return err
 		}
 	}
-	asset := "agentx-bridge-mcp_" + runtime.GOOS + "_" + runtime.GOARCH + suffix()
-	base := "https://github.com/" + repository + "/releases/download/" + version + "/"
-	sums, err := i.fetch(ctx, base+"SHA256SUMS", 64<<10)
+	newBinary, source, err := i.candidate(ctx, version)
 	if err != nil {
 		return err
 	}
-	want, err := checksum(sums, asset)
-	if err != nil {
-		return err
-	}
-	newBinary, err := i.fetch(ctx, base+asset, 64<<20)
-	if err != nil {
-		return err
-	}
-	if digest(newBinary) != want {
-		return errors.New("binary checksum mismatch; existing installation preserved")
+	want := digest(newBinary)
+	if previous.Version == version && previous.BinaryHash != want && !upgrade {
+		return errors.New("same version has different bytes; use upgrade to preserve rollback")
 	}
 	stage := filepath.Join(i.root, "candidate"+suffix())
 	if err := atomicWrite(stage, newBinary, 0700); err != nil {
@@ -433,7 +433,7 @@ func (i installer) install(ctx context.Context, version, skillPath string, upgra
 	if err := i.probe(stage); err != nil {
 		return err
 	}
-	next := state{Version: version, Host: i.host, BinaryHash: want, SkillPath: skillPath}
+	next := state{Version: version, Host: i.host, BinaryHash: want, Source: source, SkillPath: skillPath}
 	if skillPath != "" {
 		next.SkillHash = digest(skill)
 	}
@@ -445,7 +445,7 @@ func (i installer) install(ctx context.Context, version, skillPath string, upgra
 	if previous.SkillPath != "" && previous.SkillPath != skillPath {
 		updates = append(updates, update{previous.SkillPath, nil, 0600})
 	}
-	if previous.Version != "" && previous.Version != version {
+	if previous.Version != "" && (previous.Version != version || previous.BinaryHash != want || previous.SkillHash != next.SkillHash || previous.SkillPath != skillPath) {
 		// Persist the previous verified release before changing active files.
 		oldState, _ := json.Marshal(previous)
 		for _, u := range []update{{filepath.Join(i.root, "previous-binary"), binary, 0600}, {filepath.Join(i.root, "previous-state.json"), oldState, 0600}, {filepath.Join(i.root, "previous-skill"), oldSkill, 0600}} {
@@ -553,7 +553,7 @@ func (i installer) rollback() error {
 	}
 	var old state
 	b, _, err := readManaged(filepath.Join(i.root, "previous-state.json"))
-	if err != nil || json.Unmarshal(b, &old) != nil || old.Host != i.host {
+	if err != nil || json.Unmarshal(b, &old) != nil || old.Host != i.host || !versionPattern.MatchString(old.Version) || !validSource(old.Source) {
 		return errors.New("no compatible previous release")
 	}
 	home, err := os.UserHomeDir()
