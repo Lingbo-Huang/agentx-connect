@@ -169,6 +169,9 @@ func run(args []string) error {
 		operation = "login"
 	}
 	bridgeArgs := []string{operation, *host, "--server", *server}
+	if *plugin {
+		bridgeArgs = append(bridgeArgs, "--reuse")
+	}
 	if *noBrowser {
 		bridgeArgs = append(bridgeArgs, "--no-open-browser")
 	}

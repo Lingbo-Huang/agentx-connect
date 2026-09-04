@@ -5,7 +5,10 @@ on:
 permissions:
   contents: read
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
   build:
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -43,3 +46,34 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --prerelease \
             --title "AgentX Connect $GITHUB_REF_NAME" \
             --notes "Standalone client and installer for macOS/Linux/Windows. SHA256SUMS and GitHub build attestations included. This release is not Apple Developer-ID notarized or approved by an official plugin/extension store. Git marketplaces can be added directly. See start.md and SECURITY.md."
+  smoke:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install release without source toolchain
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="$(cd "$RUNNER_TEMP" && pwd -P)/agentx-release-smoke"
+          sh install.sh install --host codex --version "$GITHUB_REF_NAME" --root "$prefix" --plugin --no-connect
+          "$prefix/bin/agentx-bridge-mcp" version
+          sh install.sh status --host codex --root "$prefix"
+          sh install.sh uninstall --host codex --root "$prefix" --plugin
+      - name: Install Windows release without source toolchain
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $prefix = Join-Path $env:RUNNER_TEMP 'agentx-release-smoke'
+          & ./install.ps1 install --host codex --version $env:GITHUB_REF_NAME --root $prefix --plugin --no-connect
+          if ($LASTEXITCODE -ne 0) { throw 'Install failed' }
+          & "$prefix/bin/agentx-bridge-mcp.exe" version
+          & ./install.ps1 status --host codex --root $prefix
+          if ($LASTEXITCODE -ne 0) { throw 'Status failed' }
+          & ./install.ps1 uninstall --host codex --root $prefix --plugin
+          if ($LASTEXITCODE -ne 0) { throw 'Uninstall failed' }

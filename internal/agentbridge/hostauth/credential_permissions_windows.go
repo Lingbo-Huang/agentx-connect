@@ -26,7 +26,7 @@ func secureCredentialFile(file *os.File) error {
 	// os.OpenFile requests data access, not WRITE_DAC. The owner can reopen the
 	// named file for WRITE_DAC; SetSecurityInfo on that data-only handle cannot.
 	if err := windows.SetNamedSecurityInfo(file.Name(), windows.SE_FILE_OBJECT,
-		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
+		windows.OWNER_SECURITY_INFORMATION|windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, user.User.Sid, nil, acl, nil); err != nil {
 		return errors.New("protect credential file ACL")
 	}
 	return nil
@@ -40,6 +40,10 @@ func validateCredentialPermissions(path string, _ os.FileInfo) error {
 	}
 	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION|windows.OWNER_SECURITY_INFORMATION)
 	if err != nil {
+		return fail
+	}
+	control, _, err := sd.Control()
+	if err != nil || control&windows.SE_DACL_PROTECTED == 0 {
 		return fail
 	}
 	owner, _, err := sd.Owner()

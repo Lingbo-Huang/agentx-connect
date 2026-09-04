@@ -608,6 +608,27 @@ func TestVersionDoesNotRequireHostDependencies(t *testing.T) {
 	}
 }
 
+func TestPluginLoginReusesIdentityBeforeDeviceSideEffect(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "host.json")
+	expires := time.Now().UTC().Add(time.Hour)
+	value := hostauth.CredentialBundle{ServerURL: "https://agentx.example", Credential: "test-only-reused-credential", ExpiresAt: &expires,
+		Caller: protocol.CallerContext{PrincipalID: "principal-test", SpaceID: "space-test", HostInstallationID: "host-test", HostKind: protocol.HostKindCodex}}
+	if err := hostauth.SaveCredentialBundle(path, value, false); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	args := []string{"login", "codex", "--server", value.ServerURL, "--credential-file", path, "--reuse"}
+	if err := runWithDependencies(args, &output, &output, testCommandDependencies()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "credential reused") || strings.Contains(output.String(), value.Credential) {
+		t.Fatal("invalid reuse output")
+	}
+	if err := runWithDependencies(args[:len(args)-1], &output, &output, testCommandDependencies()); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("did not reject before network: %v", err)
+	}
+}
+
 type staticCodexChecker struct {
 	state hostinstall.InstallationState
 	err   error

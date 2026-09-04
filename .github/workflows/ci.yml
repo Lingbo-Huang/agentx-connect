@@ -1,5 +1,6 @@
 name: Connector CI
 on:
+  workflow_call:
   push:
   pull_request:
 permissions:

@@ -735,12 +735,35 @@ func runDeviceLogin(target hostTarget, arguments []string, output, errorOutput i
 	credentialPath := flags.String("credential-file", envOr("AGENTX_HOST_CREDENTIAL_FILE", defaultPath), "path to the AgentX HostInstallation credential file")
 	displayName := flags.String("display-name", defaultDisplayName(target), "name shown in AgentX for this Host installation")
 	replace := flags.Bool("replace", false, "replace an existing local HostInstallation credential after successful authorization")
+	reuse := flags.Bool("reuse", false, "reuse a compatible unexpired credential without registering native MCP")
 	noOpenBrowser := flags.Bool("no-open-browser", false, "print the Device Authorization URL without opening a browser")
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
+	}
+	if *reuse && *replace {
+		return errors.New("--reuse and --replace cannot be combined")
+	}
+	if *reuse {
+		ready, err := reusableHostCredential(*credentialPath, *serverURL, target.kind)
+		if err != nil {
+			return err
+		}
+		if ready {
+			_, err := fmt.Fprintln(output, "AgentX Host credential reused; the Server rechecks authority on every tool call")
+			return err
+		}
+	} else if _, err := os.Lstat(*credentialPath); err == nil {
+		if _, err := hostauth.LoadCredentialBundle(*credentialPath); err != nil {
+			return err
+		}
+		if !*replace {
+			return errors.New("Host credential already exists; use --reuse or explicitly --replace")
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return errors.New("inspect Host credential before authorization")
 	}
 	return performDeviceLogin(context.Background(), target, deviceLoginConfig{
 		serverURL: *serverURL, credentialPath: *credentialPath, displayName: *displayName,
